@@ -2,9 +2,24 @@ import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
+import { validateEnv } from './config/env.validation'
+import { PrismaModule } from './prisma/prisma.module'
+import { RedisModule } from './common/redis/redis.module'
+import { MailModule } from './common/mail/mail.module'
+import { AuthModule } from './auth/auth.module'
+import { ProfileModule } from './profile/profile.module'
+import { UsersModule } from './users/users.module'
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    PrismaModule,
+    RedisModule,
+    MailModule,
+    AuthModule,
+    ProfileModule,
+    UsersModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

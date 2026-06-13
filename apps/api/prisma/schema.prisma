@@ -20,14 +20,40 @@ enum UserStatus {
   invited
 }
 
+enum AutoRecord {
+  all
+  organized
+  off
+}
+
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  name      String
-  role      Role       @default(member)
-  status    UserStatus @default(active)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String          @id @default(cuid())
+  email       String          @unique
+  name        String
+  title       String?
+  timezone    String?
+  role        Role            @default(member)
+  status      UserStatus      @default(active)
+  lastLoginAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  preferences UserPreference?
 
   @@map("users")
+}
+
+model UserPreference {
+  id                  String     @id @default(cuid())
+  userId              String     @unique
+  user                User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  autoRecord          AutoRecord @default(organized)
+  joinEarly           Boolean    @default(true)
+  notifyOnSummary     Boolean    @default(true)
+  customPromptEnabled Boolean    @default(false)
+  customPrompt        String?
+  weeklyDigest        Boolean    @default(true)
+  slackSummaries      Boolean    @default(false)
+  updatedAt           DateTime   @updatedAt
+
+  @@map("user_preferences")
 }

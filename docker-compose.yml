@@ -1,9 +1,9 @@
 # Infrastructure only. The app (apps/app) and api (apps/api) run locally via pnpm.
 # Start with: pnpm infra:up   (docker compose up -d)
 #
-# Host ports are offset from the defaults (5433/6380) so meetbud coexists with
-# other Postgres/Redis instances on this machine. Containers still use 5432/6379
-# internally; only the published host port differs.
+# Host ports are offset from the defaults (5433/6380/1026/8026) so meetbud coexists
+# with other Postgres/Redis/Mailpit instances on this machine. Containers still use
+# 5432/6379/1025/8025 internally; only the published host port differs.
 services:
   db:
     image: postgres:17-alpine
@@ -34,6 +34,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '1026:1025' # SMTP → host port 1026
+      - '8026:8025' # web UI → http://localhost:8026
 
 volumes:
   meetbud_db:
