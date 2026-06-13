@@ -43,6 +43,17 @@ export function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
 
+export function fmtInt(n: number): string {
+  return Math.round(n).toLocaleString('en-US')
+}
+
+export function fmtCompact(n: number): string {
+  if (n >= 1e9) return (n / 1e9).toFixed(n >= 1e10 ? 0 : 1) + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1) + 'k'
+  return String(Math.round(n))
+}
+
 export function fmtTime(d: Date): string {
   let h = d.getHours()
   const m = d.getMinutes()

@@ -31,6 +31,12 @@ const workspaceItems: NavDef[] = [
   { icon: 'notes', label: 'Notes', to: 'notes', match: ['notes', 'meeting'] },
 ]
 const adminItems: NavDef[] = [
+  {
+    icon: 'bar-chart',
+    label: 'Analytics',
+    to: 'analytics',
+    match: ['analytics'],
+  },
   { icon: 'users', label: 'Users', to: 'users', match: ['users'] },
   {
     icon: 'settings',
