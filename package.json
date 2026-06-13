@@ -1,0 +1,29 @@
+{
+  "name": "meetbud",
+  "version": "0.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:app": "pnpm --filter @meetbud/app dev",
+    "dev:api": "pnpm --filter @meetbud/api start:dev",
+    "build": "pnpm -r build",
+    "format": "prettier --write \"**/*.{ts,vue,js,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,vue,js,json,md,yaml,yml}\"",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+# Infrastructure only. The app (apps/app) and api (apps/api) run locally via pnpm.
+# Start with: pnpm infra:up   (docker compose up -d)
+#
+# Host ports are offset from the defaults (5433/6380) so meetbud coexists with
+# other Postgres/Redis instances on this machine. Containers still use 5432/6379
+# internally; only the published host port differs.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: meetbud
+      POSTGRES_PASSWORD: meetbud
+      POSTGRES_DB: meetbud
+    ports:
+      - '5433:5432'
+    volumes:
+      - meetbud_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U meetbud']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6380:6379'
+    volumes:
+      - meetbud_redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  meetbud_db:
+  meetbud_redis:

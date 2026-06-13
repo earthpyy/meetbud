@@ -1,0 +1,33 @@
+// Minimal starter schema — just enough to seed an admin user.
+// The full meetbud schema (meetings, transcripts, summaries, etc.) is designed in a later phase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  member
+}
+
+enum UserStatus {
+  active
+  invited
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String
+  role      Role       @default(member)
+  status    UserStatus @default(active)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("users")
+}
