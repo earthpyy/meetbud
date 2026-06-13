@@ -47,6 +47,16 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'admin/analytics',
+        name: 'analytics',
+        component: () => import('@/views/AnalyticsView.vue'),
+        meta: {
+          title: 'Analytics',
+          sub: 'Workspace recording & usage insights',
+          admin: true,
+        },
+      },
+      {
         path: 'admin/users',
         name: 'users',
         component: () => import('@/views/AdminUsersView.vue'),

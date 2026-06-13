@@ -87,4 +87,12 @@ export const ICON_PATHS: Record<string, string> = {
   dot: '<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>',
   plug: '<path d="M12 22v-5M9 8V2M15 8V2M5 8h14v3a7 7 0 0 1-14 0z"/>',
   wave: '<path d="M2 12h2l2-7 4 16 3-11 2 5 2-3h5"/>',
+  'bar-chart': '<path d="M3 3v18h18M8 17v-5M13 17V8M18 17v-9"/>',
+  'trending-up':
+    '<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
+  'trending-down':
+    '<path d="M22 17 13.5 8.5 8.5 13.5 2 7"/><path d="M16 17h6v-6"/>',
+  timer: '<path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/>',
+  cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
 }
