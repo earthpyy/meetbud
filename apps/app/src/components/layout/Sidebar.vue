@@ -205,7 +205,10 @@ function navItemClass(active: boolean) {
     </div>
 
     <!-- footer user -->
-    <div :class="cn('border-t border-base-content/10', rail ? 'p-2' : 'p-3')">
+    <div
+      v-if="auth.user"
+      :class="cn('border-t border-base-content/10', rail ? 'p-2' : 'p-3')"
+    >
       <button
         :class="
           cn(

@@ -46,8 +46,8 @@ function go(name: string) {
 function setRole(r: Role) {
   auth.setRole(r)
 }
-function signOut() {
-  auth.signOut()
+async function signOut() {
+  await auth.signOut()
   router.push({ name: 'login' })
 }
 </script>
@@ -106,7 +106,7 @@ function signOut() {
     <Notifications />
 
     <!-- user menu -->
-    <div class="dropdown dropdown-end">
+    <div v-if="auth.user" class="dropdown dropdown-end">
       <div
         tabindex="0"
         role="button"

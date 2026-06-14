@@ -27,24 +27,36 @@ watch(resendIn, (v) => {
 })
 onBeforeUnmount(() => clearTimeout(resendTimer))
 
-function sendCode() {
+const error = ref('')
+
+async function sendCode() {
   if (!emailValid()) return
   sending.value = true
-  setTimeout(() => {
-    sending.value = false
+  error.value = ''
+  try {
+    await auth.requestCode(email.value)
     step.value = 'code'
     resendIn.value = 30
     nextTick(() => inputs.value[0]?.focus())
-  }, 850)
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to send code'
+  } finally {
+    sending.value = false
+  }
 }
 
-function verify() {
+async function verify() {
   if (!codeFull()) return
   verifying.value = true
-  setTimeout(() => {
-    auth.signIn()
+  error.value = ''
+  try {
+    await auth.verify(email.value, code.value.join(''))
     router.push({ name: 'calendar' })
-  }, 900)
+  } catch {
+    error.value = 'Invalid or expired code'
+  } finally {
+    verifying.value = false
+  }
 }
 
 function onCodeChange(i: number, v: string) {
@@ -73,6 +85,16 @@ function onCodeKey(i: number, e: KeyboardEvent) {
   if (e.key === 'Backspace' && !code.value[i] && i > 0)
     inputs.value[i - 1]?.focus()
   if (e.key === 'Enter' && codeFull()) verify()
+}
+
+async function resend() {
+  error.value = ''
+  try {
+    await auth.requestCode(email.value)
+    resendIn.value = 30
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to resend code'
+  }
 }
 </script>
 
@@ -183,12 +205,18 @@ function onCodeKey(i: number, e: KeyboardEvent) {
             Access is invite-only. Don't have an account?<br />Ask your
             workspace admin to invite you.
           </p>
+          <p
+            v-if="error"
+            class="text-[12.5px] text-error mt-3 text-center"
+          >
+            {{ error }}
+          </p>
         </div>
 
         <div v-else>
           <button
             class="text-[13px] text-base-content/55 hover:text-base-content flex items-center gap-1 mb-5"
-            @click="step = 'email'"
+            @click="step = 'email'; error = ''"
           >
             <Icon name="arrow-left" :size="15" /> Back
           </button>
@@ -231,13 +259,16 @@ function onCodeKey(i: number, e: KeyboardEvent) {
             <button
               v-else
               class="font-semibold text-[color:var(--accent)]"
-              @click="resendIn = 30"
+              @click="resend"
             >
               Resend code
             </button>
           </div>
-          <div class="mt-4 text-center text-[11.5px] text-base-content/35">
-            Demo: enter any 6 digits to continue
+          <div
+            v-if="error"
+            class="mt-4 text-center text-[12.5px] text-error"
+          >
+            {{ error }}
           </div>
         </div>
       </div>

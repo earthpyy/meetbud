@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import Sidebar from './Sidebar.vue'
 import Topbar from './Topbar.vue'
+
+const auth = useAuthStore()
+onMounted(() => auth.refreshProfile())
 </script>
 
 <template>

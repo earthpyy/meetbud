@@ -60,6 +60,7 @@ function onPromptInput(v: string) {
     <div class="max-w-[820px] mx-auto px-6 py-6 space-y-6">
       <!-- header -->
       <div
+        v-if="auth.user"
         class="bg-base-100 border border-base-content/10 rounded-2xl p-5 flex items-center gap-4"
       >
         <Avatar :person="auth.user" :size="64" />
@@ -89,7 +90,7 @@ function onPromptInput(v: string) {
       </div>
 
       <!-- account -->
-      <ProfileCard title="Account">
+      <ProfileCard v-if="auth.user" title="Account">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ProfileField label="Full name" :value="auth.user.name" />
           <ProfileField label="Email" :value="auth.user.email" />
@@ -100,6 +101,7 @@ function onPromptInput(v: string) {
 
       <!-- calendar connection -->
       <ProfileCard
+        v-if="auth.user"
         title="Calendar connection"
         desc="meetbud reads your calendar to auto-detect and join meetings."
       >
@@ -131,7 +133,7 @@ function onPromptInput(v: string) {
                 </span>
               </div>
               <div class="text-[12.5px] text-base-content/55">
-                {{ auth.user.email }} · synced 2 min ago · 3 calendars
+                {{ auth.user?.email }} · synced 2 min ago · 3 calendars
               </div>
             </div>
             <div class="flex items-center gap-2">
