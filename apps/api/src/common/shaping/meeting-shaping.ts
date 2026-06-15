@@ -30,6 +30,13 @@ export interface ShapedMeeting {
   attendees: ShapedParticipant[]
 }
 
+export interface PaginatedMeetings {
+  items: ShapedMeeting[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export interface ShapedMedia {
   status: RecordingStatus
   durationSec: number | null

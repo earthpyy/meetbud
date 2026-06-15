@@ -6,6 +6,7 @@ import { fmtDateLong, fmtDuration, fmtTimeRange } from '@/lib/format'
 import { PLATFORMS } from '@/lib/constants'
 import { fetchMeeting, fetchTranscript, fetchSummary, toMeeting } from '@/lib/meetingApi'
 import type { ApiMeetingDetail, Meeting, Summary, TranscriptLine, Person } from '@/lib/types'
+import { useMeetingsStore } from '@/stores/meetings'
 import Icon from '@/components/Icon.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import AttendeeStack from '@/components/AttendeeStack.vue'
@@ -16,6 +17,7 @@ import ProcessingPanel from '@/components/meeting/ProcessingPanel.vue'
 import UpcomingPanel from '@/components/meeting/UpcomingPanel.vue'
 
 const route = useRoute()
+const meetingsStore = useMeetingsStore()
 
 const detail = ref<ApiMeetingDetail | null>(null)
 const m = ref<Meeting | null>(null)
@@ -33,6 +35,7 @@ async function loadDetail(id: string) {
   const d = await fetchMeeting(id)
   detail.value = d
   m.value = toMeeting(d)
+  meetingsStore.remember(m.value)
   for (const p of m.value.attendeesP) peopleById[p.id] = p
   if (d.hasTranscript) transcript.value = await fetchTranscript(id)
   if (d.hasSummary) summary.value = await fetchSummary(id)

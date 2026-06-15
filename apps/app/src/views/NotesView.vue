@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { cn } from '@/lib/cn'
 import { fmtDuration, fmtTime, relativeDay } from '@/lib/format'
@@ -16,15 +16,8 @@ const router = useRouter()
 const ui = useUiStore()
 const recordings = useRecordingsStore()
 const meetingsStore = useMeetingsStore()
-onMounted(async () => {
-  await meetingsStore.load()
-  for (const m of meetingsStore.meetings) recordings.prime(m.id, m.recording)
-})
-
-const q = ref('')
-const filter = ref('all')
-const layout = computed(() => ui.notesLayout)
 const now = new Date()
+const layout = computed(() => ui.notesLayout)
 
 const FILTERS = [
   { v: 'all', label: 'All' },
@@ -34,18 +27,34 @@ const FILTERS = [
   { v: 'upcoming', label: 'Upcoming' },
 ]
 
-function matches(m: Meeting) {
-  if (q.value && !m.title.toLowerCase().includes(q.value.toLowerCase()))
-    return false
-  if (filter.value === 'all') return true
-  if (filter.value === 'processing')
-    return m.status === 'transcribing' || m.status === 'summarizing'
-  return m.status === filter.value
+const q = ref(meetingsStore.notes.q)
+const filter = ref(meetingsStore.notes.filter)
+
+onMounted(() => meetingsStore.loadNotesPage(1))
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+watch(q, (val) => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => meetingsStore.setNotesQuery({ q: val }), 300)
+})
+
+onUnmounted(() => clearTimeout(searchTimer))
+
+function setFilter(v: string) {
+  filter.value = v
+  meetingsStore.setNotesQuery({ filter: v })
 }
 
-const list = computed(() =>
-  meetingsStore.meetings.filter(matches).sort((a, b) => +b.start - +a.start),
+const list = computed(() => meetingsStore.notes.items)
+const pageCount = computed(() =>
+  Math.max(1, Math.ceil(meetingsStore.notes.total / meetingsStore.notes.pageSize)),
 )
+const currentPage = computed(() => meetingsStore.notes.page)
+
+function goToPage(p: number) {
+  if (p < 1 || p > pageCount.value) return
+  meetingsStore.loadNotesPage(p)
+}
 
 function open(m: Meeting) {
   router.push({ name: 'meeting', params: { id: m.id } })
@@ -86,7 +95,7 @@ function hasNotes(m: Meeting) {
             :style="
               filter === f.v ? { background: 'var(--accent)' } : undefined
             "
-            @click="filter = f.v"
+            @click="setFilter(f.v)"
           >
             {{ f.label }}
           </button>
@@ -284,6 +293,40 @@ function hasNotes(m: Meeting) {
               <Icon name="arrow-right" :size="14" />
             </span>
           </div>
+        </button>
+      </div>
+
+      <div
+        v-if="pageCount > 1"
+        class="flex items-center justify-center gap-1.5 mt-6"
+      >
+        <button
+          class="btn btn-sm btn-ghost"
+          :disabled="currentPage === 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          Prev
+        </button>
+        <button
+          v-for="p in pageCount"
+          :key="p"
+          :class="
+            cn(
+              'btn btn-sm',
+              p === currentPage ? 'text-white border-0' : 'btn-ghost',
+            )
+          "
+          :style="p === currentPage ? { background: 'var(--accent)' } : undefined"
+          @click="goToPage(p)"
+        >
+          {{ p }}
+        </button>
+        <button
+          class="btn btn-sm btn-ghost"
+          :disabled="currentPage === pageCount"
+          @click="goToPage(currentPage + 1)"
+        >
+          Next
         </button>
       </div>
     </div>

@@ -11,9 +11,11 @@ import {
   shapeMeetingDetail,
   ShapedMeeting,
   ShapedMeetingDetail,
+  PaginatedMeetings,
 } from '../common/shaping/meeting-shaping'
 import { detectPlatform } from './platform'
 import { ListMeetingsQueryDto } from './dto/list-meetings-query.dto'
+import { ListMeetingsPageQueryDto } from './dto/list-meetings-page-query.dto'
 import { CreateMeetingDto } from './dto/create-meeting.dto'
 import { UpdateRecordingDto } from './dto/update-recording.dto'
 
@@ -31,10 +33,15 @@ export class MeetingsService {
     }
   }
 
-  async list(
-    query: ListMeetingsQueryDto,
+  private buildWhere(
+    query: {
+      q?: string
+      filter?: ListMeetingsQueryDto['filter']
+      from?: string
+      to?: string
+    },
     user: AuthUser,
-  ): Promise<ShapedMeeting[]> {
+  ): Prisma.MeetingWhereInput {
     const where: Prisma.MeetingWhereInput = { ...this.visibilityWhere(user) }
     if (query.q) where.title = { contains: query.q, mode: 'insensitive' }
     if (query.filter && query.filter !== 'all') {
@@ -48,12 +55,45 @@ export class MeetingsService {
       if (query.from) where.startAt.gte = new Date(query.from)
       if (query.to) where.startAt.lte = new Date(query.to)
     }
+    return where
+  }
+
+  async list(
+    query: ListMeetingsQueryDto,
+    user: AuthUser,
+  ): Promise<ShapedMeeting[]> {
+    const where = this.buildWhere(query, user)
     const meetings = await this.prisma.meeting.findMany({
       where,
       include: { participants: true },
       orderBy: { startAt: 'desc' },
     })
     return meetings.map((m) => shapeMeeting(m, m.participants))
+  }
+
+  async listPaginated(
+    query: ListMeetingsPageQueryDto,
+    user: AuthUser,
+  ): Promise<PaginatedMeetings> {
+    const page = query.page ?? 1
+    const pageSize = query.pageSize ?? 20
+    const where = this.buildWhere(query, user)
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.meeting.findMany({
+        where,
+        include: { participants: true },
+        orderBy: { startAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.meeting.count({ where }),
+    ])
+    return {
+      items: rows.map((m) => shapeMeeting(m, m.participants)),
+      total,
+      page,
+      pageSize,
+    }
   }
 
   async findVisibleOrThrow(

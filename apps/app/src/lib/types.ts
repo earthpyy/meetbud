@@ -104,3 +104,10 @@ export interface ApiMeetingDetail extends ApiMeeting {
   hasSummary: boolean
   media: { status: string; durationSec: number | null; audioUrl: string | null; videoUrl: string | null } | null
 }
+
+export interface PageResult<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+}

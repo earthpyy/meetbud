@@ -89,6 +89,52 @@ describe('Meetings (e2e)', () => {
       .expect(200)
   })
 
+  it('paginates and filters via /meetings/list', async () => {
+    const owner = await createUser(ctx, { role: 'member' })
+    const stranger = await createUser(ctx, { role: 'member' })
+    userIds.push(owner.id, stranger.id)
+
+    const a = await createMeeting(ctx, owner, { title: 'List A', status: 'done' })
+    const b = await createMeeting(ctx, owner, { title: 'List B', status: 'done' })
+    const c = await createMeeting(ctx, owner, { title: 'List C', status: 'upcoming' })
+    meetingIds.push(a.id, b.id, c.id)
+
+    const token = await accessTokenFor(ctx, owner)
+
+    const page1 = await request(ctx.app.getHttpServer())
+      .get('/api/meetings/list?page=1&pageSize=2')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+    expect(page1.body).toMatchObject({ page: 1, pageSize: 2, total: 3 })
+    expect(page1.body.items).toHaveLength(2)
+
+    const page2 = await request(ctx.app.getHttpServer())
+      .get('/api/meetings/list?page=2&pageSize=2')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+    expect(page2.body.items).toHaveLength(1)
+
+    const doneOnly = await request(ctx.app.getHttpServer())
+      .get('/api/meetings/list?filter=done')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+    expect(doneOnly.body.total).toBe(2)
+    expect(
+      doneOnly.body.items.every((m: { status: string }) => m.status === 'done'),
+    ).toBe(true)
+
+    const strangerToken = await accessTokenFor(ctx, stranger)
+    const strangerList = await request(ctx.app.getHttpServer())
+      .get('/api/meetings/list')
+      .set('Authorization', `Bearer ${strangerToken}`)
+      .expect(200)
+    expect(
+      strangerList.body.items.some((m: { id: string }) =>
+        [a.id, b.id, c.id].includes(m.id),
+      ),
+    ).toBe(false)
+  })
+
   it('returns 404 for a summary that does not exist', async () => {
     const owner = await createUser(ctx, { role: 'member' })
     userIds.push(owner.id)

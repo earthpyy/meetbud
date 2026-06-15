@@ -41,7 +41,8 @@ async function onSubmit(link: string, title: string) {
     const created = await createMeeting(link, title)
     recOpen.value = false
     flash(`meetbud is joining “${title}” to record…`)
-    await meetingsStore.load(true)
+    meetingsStore.invalidateCalendar()
+    await meetingsStore.loadNotesPage(1)
     router.push({ name: 'meeting', params: { id: created.id } })
   } catch (e) {
     flash(e instanceof Error ? e.message : 'Failed to start recording')

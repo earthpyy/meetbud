@@ -4,6 +4,7 @@ import type {
   ApiMeetingDetail,
   ApiPerson,
   Meeting,
+  PageResult,
   Person,
   Summary,
   TranscriptLine,
@@ -44,8 +45,6 @@ export function toMeeting(dto: ApiMeeting): Meeting {
   }
 }
 
-export const fetchMeetings = (qs = '') =>
-  apiGet<ApiMeeting[]>(`/meetings${qs}`).then((list) => list.map(toMeeting))
 export const fetchMeeting = (id: string) => apiGet<ApiMeetingDetail>(`/meetings/${id}`)
 export const fetchTranscript = (id: string) =>
   apiGet<TranscriptLine[]>(`/meetings/${id}/transcript`)
@@ -55,3 +54,24 @@ export const createMeeting = (joinUrl: string, title: string) =>
 export const setRecording = (id: string, recordingEnabled: boolean) =>
   apiPatch<ApiMeetingDetail>(`/meetings/${id}/recording`, { recordingEnabled })
 export const deleteMeeting = (id: string) => apiDelete<{ ok: boolean }>(`/meetings/${id}`)
+
+export const fetchMeetingsRange = (fromISO: string, toISO: string) =>
+  apiGet<ApiMeeting[]>(
+    `/meetings?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}`,
+  ).then((list) => list.map(toMeeting))
+
+export const fetchMeetingsPage = (params: {
+  page: number
+  pageSize: number
+  q?: string
+  filter?: string
+}): Promise<PageResult<Meeting>> => {
+  const qs = new URLSearchParams()
+  qs.set('page', String(params.page))
+  qs.set('pageSize', String(params.pageSize))
+  if (params.q) qs.set('q', params.q)
+  if (params.filter && params.filter !== 'all') qs.set('filter', params.filter)
+  return apiGet<PageResult<ApiMeeting>>(`/meetings/list?${qs.toString()}`).then(
+    (res) => ({ ...res, items: res.items.map(toMeeting) }),
+  )
+}

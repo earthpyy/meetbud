@@ -15,6 +15,7 @@ import { MeetingsService } from './meetings.service'
 import { TranscriptService } from './transcript.service'
 import { SummaryService } from './summary.service'
 import { ListMeetingsQueryDto } from './dto/list-meetings-query.dto'
+import { ListMeetingsPageQueryDto } from './dto/list-meetings-page-query.dto'
 import { CreateMeetingDto } from './dto/create-meeting.dto'
 import { UpdateRecordingDto } from './dto/update-recording.dto'
 
@@ -34,6 +35,14 @@ export class MeetingsController {
   @Post()
   create(@Body() dto: CreateMeetingDto, @CurrentUser() user: AuthUser) {
     return this.meetings.create(dto, user)
+  }
+
+  @Get('list')
+  listPaginated(
+    @Query() query: ListMeetingsPageQueryDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.meetings.listPaginated(query, user)
   }
 
   @Get(':id')

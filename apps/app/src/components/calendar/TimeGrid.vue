@@ -3,17 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { cn } from '@/lib/cn'
 import { DAY_ABBR, fmtHour, sameDay } from '@/lib/format'
 import type { Meeting } from '@/lib/types'
-import { storeToRefs } from 'pinia'
-import { useMeetingsStore } from '@/stores/meetings'
 import { useUiStore } from '@/stores/ui'
 import EventBlock from './EventBlock.vue'
 
 type LaidMeeting = Meeting & { _col: number; _cols: number }
 
-const props = defineProps<{ days: Date[] }>()
+const props = defineProps<{ days: Date[]; meetings: Meeting[] }>()
 const emit = defineEmits<{ event: [ev: Meeting] }>()
 
-const { meetings: MEETINGS } = storeToRefs(useMeetingsStore())
 const ui = useUiStore()
 
 const GRID_START = 7
@@ -104,7 +101,7 @@ interface Column {
 
 const columns = computed<Column[]>(() =>
   props.days.map((d) => {
-    const evs = MEETINGS.value.filter((m) => sameDay(m.start, d)).map((m) => ({
+    const evs = props.meetings.filter((m) => sameDay(m.start, d)).map((m) => ({
       ...m,
     }))
     const laid = layoutDay(evs)

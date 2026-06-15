@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { cn } from '@/lib/cn'
 import {
   MONTHS,
@@ -12,7 +12,6 @@ import type { Meeting } from '@/lib/types'
 import { useUiStore } from '@/stores/ui'
 import type { CalView } from '@/stores/ui'
 import { useMeetingsStore } from '@/stores/meetings'
-import { useRecordingsStore } from '@/stores/recordings'
 import Icon from '@/components/Icon.vue'
 import TimeGrid from '@/components/calendar/TimeGrid.vue'
 import MonthView from '@/components/calendar/MonthView.vue'
@@ -21,14 +20,8 @@ import MeetingPopup from '@/components/calendar/MeetingPopup.vue'
 
 const ui = useUiStore()
 const meetingsStore = useMeetingsStore()
-const recordings = useRecordingsStore()
 const anchor = ref(new Date())
 const popup = ref<Meeting | null>(null)
-
-onMounted(async () => {
-  await meetingsStore.load()
-  for (const m of meetingsStore.meetings) recordings.prime(m.id, m.recording)
-})
 
 const view = computed(() => ui.calView)
 const views: CalView[] = ['day', 'week', 'month', 'list']
@@ -70,6 +63,49 @@ function onDay(d: Date) {
   anchor.value = d
   setV('day')
 }
+
+const visibleRange = computed<{ from: Date; to: Date }>(() => {
+  const v = view.value
+  if (v === 'list') {
+    const from = new Date()
+    from.setHours(0, 0, 0, 0)
+    return { from, to: addDays(from, 30) }
+  }
+  if (v === 'day') {
+    const from = new Date(anchor.value)
+    from.setHours(0, 0, 0, 0)
+    const to = new Date(from)
+    to.setHours(23, 59, 59, 999)
+    return { from, to }
+  }
+  if (v === 'week') {
+    const from = startOfWeek(anchor.value)
+    const to = addDays(from, 6)
+    to.setHours(23, 59, 59, 999)
+    return { from, to }
+  }
+  const first = new Date(anchor.value.getFullYear(), anchor.value.getMonth(), 1)
+  const from = startOfWeek(first)
+  const to = addDays(from, 41)
+  to.setHours(23, 59, 59, 999)
+  return { from, to }
+})
+
+watch(
+  visibleRange,
+  ({ from, to }) => {
+    const d = new Date(from.getFullYear(), from.getMonth(), 1)
+    while (d <= to) {
+      meetingsStore.loadMonth(new Date(d))
+      d.setMonth(d.getMonth() + 1)
+    }
+  },
+  { immediate: true },
+)
+
+const visibleMeetings = computed(() =>
+  meetingsStore.meetingsInRange(visibleRange.value.from, visibleRange.value.to),
+)
 </script>
 
 <template>
@@ -121,14 +157,15 @@ function onDay(d: Date) {
 
     <!-- body -->
     <div class="flex-1 min-h-0">
-      <ListView v-if="view === 'list'" @event="popup = $event" />
+      <ListView v-if="view === 'list'" :meetings="visibleMeetings" @event="popup = $event" />
       <MonthView
         v-else-if="view === 'month'"
         :anchor="anchor"
+        :meetings="visibleMeetings"
         @event="popup = $event"
         @day="onDay"
       />
-      <TimeGrid v-else :days="gridDays" @event="popup = $event" />
+      <TimeGrid v-else :days="gridDays" :meetings="visibleMeetings" @event="popup = $event" />
     </div>
 
     <MeetingPopup v-if="popup" :meeting="popup" @close="popup = null" />
