@@ -1,17 +1,29 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { cn } from '@/lib/cn'
-import type { AdminUser } from '@/lib/types'
-import { ADMIN_USERS } from '@/data/adminUsers'
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api'
+import { fmtDateMed } from '@/lib/format'
 import { useUiStore } from '@/stores/ui'
 import Icon from '@/components/Icon.vue'
 import Avatar from '@/components/Avatar.vue'
 import RoleBadge from '@/components/admin/RoleBadge.vue'
 import InviteModal from '@/components/admin/InviteModal.vue'
 
+interface ApiAdminUser {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'member'
+  status: 'active' | 'invited'
+  initials: string
+  color: string
+  lastActiveAt: string | null
+  meetings: number
+}
+
 const ui = useUiStore()
 
-const users = ref<AdminUser[]>(ADMIN_USERS.map((u) => ({ ...u })))
+const users = ref<ApiAdminUser[]>([])
 const q = ref('')
 const filter = ref('all')
 const inviteOpen = ref(false)
@@ -24,47 +36,72 @@ const filters: [string, string][] = [
   ['invited', 'Invited'],
 ]
 
+async function load() {
+  try {
+    users.value = await apiGet<ApiAdminUser[]>('/users')
+  } catch (err) {
+    console.error('Failed to load users', err)
+  }
+}
+onMounted(load)
+
 function flash(msg: string) {
   toast.value = msg
   setTimeout(() => (toast.value = null), 2600)
 }
-function invite(email: string, role: 'admin' | 'member') {
-  const initials = email[0].toUpperCase()
-  users.value = [
-    {
-      id: 'inv-' + Date.now(),
-      name: email,
-      email,
-      role,
-      status: 'invited',
-      initials,
-      color: '#94a3b8',
-      last: 'Invited just now',
-      meetings: 0,
-    },
-    ...users.value,
-  ]
-  inviteOpen.value = false
-  flash(`Invite sent to ${email}`)
+
+async function invite(email: string, role: 'admin' | 'member') {
+  try {
+    await apiPost('/users', { email, role })
+    await load()
+    inviteOpen.value = false
+    flash(`Invite sent to ${email}`)
+  } catch (err) {
+    console.error('Failed to invite user', err)
+  }
 }
-function setRole(id: string, role: 'admin' | 'member') {
-  users.value = users.value.map((x) => (x.id === id ? { ...x, role } : x))
+
+async function setRole(id: string, role: 'admin' | 'member') {
+  try {
+    await apiPatch(`/users/${id}/role`, { role })
+    await load()
+  } catch (err) {
+    console.error('Failed to update role', err)
+  }
   blur()
 }
-function remove(id: string) {
-  users.value = users.value.filter((x) => x.id !== id)
+
+async function remove(id: string) {
+  try {
+    await apiDelete(`/users/${id}`)
+    await load()
+  } catch (err) {
+    console.error('Failed to remove user', err)
+  }
   blur()
 }
-function resend(email: string) {
-  flash(`Invite re-sent to ${email}`)
+
+async function resend(id: string) {
+  try {
+    await apiPost(`/users/${id}/resend`)
+    flash('Invite re-sent')
+  } catch (err) {
+    console.error('Failed to resend invite', err)
+  }
   blur()
 }
+
 function blur() {
   if (document.activeElement instanceof HTMLElement)
     document.activeElement.blur()
 }
 
-function matches(u: AdminUser) {
+function fmtLastActive(val: string | null): string {
+  if (!val) return '—'
+  return fmtDateMed(new Date(val))
+}
+
+function matches(u: ApiAdminUser) {
   if (
     q.value &&
     !(
@@ -224,7 +261,7 @@ const pending = computed(
               <td
                 class="hidden sm:table-cell text-[12.5px] text-base-content/50"
               >
-                {{ u.last }}
+                {{ fmtLastActive(u.lastActiveAt) }}
               </td>
               <td class="pr-5 text-right">
                 <div class="dropdown dropdown-end">
@@ -240,7 +277,7 @@ const pending = computed(
                     class="dropdown-content menu menu-sm bg-base-100 rounded-xl shadow-xl border border-base-content/10 mt-1 w-44 z-50"
                   >
                     <li v-if="u.status === 'invited'">
-                      <a @click="resend(u.email)"
+                      <a @click="resend(u.id)"
                         ><Icon name="refresh" :size="14" /> Resend invite</a
                       >
                     </li>

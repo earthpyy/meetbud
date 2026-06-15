@@ -2,20 +2,25 @@
 import { computed, ref } from 'vue'
 import { cn } from '@/lib/cn'
 import { fmtClock } from '@/lib/format'
-import { PEOPLE } from '@/data/people'
-import { TRANSCRIPT } from '@/data/transcript'
+import type { TranscriptLine, Person } from '@/lib/types'
 import Icon from '@/components/Icon.vue'
 import Avatar from '@/components/Avatar.vue'
 
-const props = defineProps<{ currentTime: number }>()
+const UNKNOWN_PERSON: Person = { id: '', name: 'Speaker', email: '', initials: '?', color: '#94a3b8' }
+
+const props = defineProps<{
+  currentTime: number
+  transcript: TranscriptLine[]
+  people: Record<string, Person>
+}>()
 const emit = defineEmits<{ seek: [t: number] }>()
 
 const q = ref('')
 
 const activeIdx = computed(() => {
   let idx = -1
-  for (let i = 0; i < TRANSCRIPT.length; i++) {
-    if (TRANSCRIPT[i].t <= props.currentTime) idx = i
+  for (let i = 0; i < props.transcript.length; i++) {
+    if (props.transcript[i].t <= props.currentTime) idx = i
     else break
   }
   return idx
@@ -23,9 +28,9 @@ const activeIdx = computed(() => {
 
 const ql = computed(() => q.value.trim().toLowerCase())
 
-function visible(line: (typeof TRANSCRIPT)[number]) {
+function visible(line: TranscriptLine) {
   if (!ql.value) return true
-  const p = PEOPLE[line.sp]
+  const p = props.people[line.sp] ?? UNKNOWN_PERSON
   return (
     line.text.toLowerCase().includes(ql.value) ||
     p.name.toLowerCase().includes(ql.value)
@@ -46,7 +51,7 @@ function visible(line: (typeof TRANSCRIPT)[number]) {
       />
     </label>
     <div class="space-y-1">
-      <template v-for="(line, i) in TRANSCRIPT" :key="i">
+      <template v-for="(line, i) in props.transcript" :key="i">
         <div
           v-if="visible(line)"
           :class="
@@ -65,13 +70,13 @@ function visible(line: (typeof TRANSCRIPT)[number]) {
               : {}
           "
         >
-          <Avatar :person="PEOPLE[line.sp]" :size="32" class="mt-0.5" />
+          <Avatar :person="props.people[line.sp] ?? UNKNOWN_PERSON" :size="32" class="mt-0.5" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 mb-0.5">
               <span
                 class="font-semibold text-[13.5px] whitespace-nowrap"
-                :style="{ color: PEOPLE[line.sp].color }"
-                >{{ PEOPLE[line.sp].name }}</span
+                :style="{ color: (props.people[line.sp] ?? UNKNOWN_PERSON).color }"
+                >{{ (props.people[line.sp] ?? UNKNOWN_PERSON).name }}</span
               >
               <button
                 class="font-mono text-[11.5px] text-base-content/40 hover:text-[color:var(--accent)] tabular-nums"

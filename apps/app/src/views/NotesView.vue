@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { cn } from '@/lib/cn'
 import { fmtDuration, fmtTime, relativeDay } from '@/lib/format'
 import { PLATFORMS } from '@/lib/constants'
 import type { Meeting } from '@/lib/types'
-import { MEETINGS } from '@/data/meetings'
+import { useMeetingsStore } from '@/stores/meetings'
 import { useUiStore } from '@/stores/ui'
 import { useRecordingsStore } from '@/stores/recordings'
 import Icon from '@/components/Icon.vue'
@@ -15,6 +15,11 @@ import AttendeeStack from '@/components/AttendeeStack.vue'
 const router = useRouter()
 const ui = useUiStore()
 const recordings = useRecordingsStore()
+const meetingsStore = useMeetingsStore()
+onMounted(async () => {
+  await meetingsStore.load()
+  for (const m of meetingsStore.meetings) recordings.prime(m.id, m.recording)
+})
 
 const q = ref('')
 const filter = ref('all')
@@ -39,7 +44,7 @@ function matches(m: Meeting) {
 }
 
 const list = computed(() =>
-  MEETINGS.filter(matches).sort((a, b) => +b.start - +a.start),
+  meetingsStore.meetings.filter(matches).sort((a, b) => +b.start - +a.start),
 )
 
 function open(m: Meeting) {

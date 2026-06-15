@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { fmtClock } from '@/lib/format'
-import { REC_DURATION } from '@/data/summary'
 import Icon from '@/components/Icon.vue'
 
-const props = defineProps<{ currentTime: number; playing: boolean }>()
+const props = defineProps<{ currentTime: number; playing: boolean; duration: number }>()
 const emit = defineEmits<{
   'update:time': [v: number]
   'update:playing': [v: boolean]
@@ -26,13 +25,13 @@ const WAVE = Array.from(
 const rates = [1, 1.25, 1.5, 2]
 const rate = ref(1)
 const trackRef = ref<HTMLElement | null>(null)
-const pct = computed(() => Math.min(1, props.currentTime / REC_DURATION))
+const pct = computed(() => props.duration > 0 ? Math.min(1, props.currentTime / props.duration) : 0)
 
 function seekFromEvent(e: MouseEvent) {
   if (!trackRef.value) return
   const r = trackRef.value.getBoundingClientRect()
   const x = (e.clientX - r.left) / r.width
-  emit('update:time', Math.max(0, Math.min(1, x)) * REC_DURATION)
+  emit('update:time', Math.max(0, Math.min(1, x)) * props.duration)
 }
 function setRate(r: number) {
   rate.value = r
@@ -64,7 +63,7 @@ function setRate(r: number) {
         <button
           class="btn btn-ghost btn-sm btn-square"
           title="Forward 10s"
-          @click="emit('update:time', Math.min(REC_DURATION, currentTime + 10))"
+          @click="emit('update:time', Math.min(props.duration, currentTime + 10))"
         >
           <Icon name="skip-fwd" :size="16" />
         </button>
@@ -97,7 +96,7 @@ function setRate(r: number) {
 
       <span
         class="text-[12px] font-mono text-base-content/40 tabular-nums w-10"
-        >{{ fmtClock(REC_DURATION) }}</span
+        >{{ fmtClock(props.duration) }}</span
       >
 
       <div class="dropdown dropdown-top dropdown-end hidden sm:block">

@@ -3,8 +3,9 @@
 // values stay stable across renders and reloads. Ported from analytics.jsx.
 
 import type { AdminUser } from './types'
-import { TODAY } from '@/data/meetings'
 import { MONTH_ABBR, startOfWeek, addDays } from './format'
+
+const TODAY = new Date()
 
 export type Granularity = 'weekly' | 'monthly'
 

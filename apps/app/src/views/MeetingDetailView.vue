@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { cn } from '@/lib/cn'
 import { fmtDateLong, fmtDuration, fmtTimeRange } from '@/lib/format'
 import { PLATFORMS } from '@/lib/constants'
-import { byId } from '@/data/meetings'
-import { REC_DURATION } from '@/data/summary'
+import { fetchMeeting, fetchTranscript, fetchSummary, toMeeting } from '@/lib/meetingApi'
+import type { ApiMeetingDetail, Meeting, Summary, TranscriptLine, Person } from '@/lib/types'
 import Icon from '@/components/Icon.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import AttendeeStack from '@/components/AttendeeStack.vue'
@@ -16,7 +16,28 @@ import ProcessingPanel from '@/components/meeting/ProcessingPanel.vue'
 import UpcomingPanel from '@/components/meeting/UpcomingPanel.vue'
 
 const route = useRoute()
-const m = computed(() => byId(route.params.id as string))
+
+const detail = ref<ApiMeetingDetail | null>(null)
+const m = ref<Meeting | null>(null)
+const transcript = ref<TranscriptLine[]>([])
+const summary = ref<Summary | null>(null)
+const recDuration = computed(() => detail.value?.media?.durationSec ?? 0)
+const peopleById = reactive<Record<string, Person>>({})
+
+async function loadDetail(id: string) {
+  detail.value = null
+  m.value = null
+  transcript.value = []
+  summary.value = null
+  for (const k of Object.keys(peopleById)) delete peopleById[k]
+  const d = await fetchMeeting(id)
+  detail.value = d
+  m.value = toMeeting(d)
+  for (const p of m.value.attendeesP) peopleById[p.id] = p
+  if (d.hasTranscript) transcript.value = await fetchTranscript(id)
+  if (d.hasSummary) summary.value = await fetchSummary(id)
+}
+watch(() => route.params.id as string, (id) => loadDetail(id), { immediate: true })
 
 const tab = ref<'summary' | 'transcript'>('summary')
 const currentTime = ref(0)
@@ -28,9 +49,9 @@ watch(playing, (on) => {
   if (!on) return
   timer = setInterval(() => {
     const n = currentTime.value + 0.25
-    if (n >= REC_DURATION) {
+    if (n >= recDuration.value) {
       playing.value = false
-      currentTime.value = REC_DURATION
+      currentTime.value = recDuration.value
       return
     }
     currentTime.value = n
@@ -172,10 +193,12 @@ const tabs: ['summary' | 'transcript', string, string][] = [
               </button>
             </div>
             <div :key="tab" class="tab-anim">
-              <SummaryTab v-if="tab === 'summary'" @seek="seekTo" />
+              <SummaryTab v-if="tab === 'summary'" :summary="summary" :people="peopleById" @seek="seekTo" />
               <TranscriptTab
                 v-else
                 :current-time="currentTime"
+                :transcript="transcript"
+                :people="peopleById"
                 @seek="seekOnly"
               />
             </div>
@@ -188,6 +211,7 @@ const tabs: ['summary' | 'transcript', string, string][] = [
       v-if="isDone"
       :current-time="currentTime"
       :playing="playing"
+      :duration="recDuration"
       @update:time="currentTime = $event"
       @update:playing="playing = $event"
     />

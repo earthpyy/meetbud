@@ -1,5 +1,4 @@
-// Minimal starter schema — just enough to seed an admin user.
-// The full meetbud schema (meetings, transcripts, summaries, etc.) is designed in a later phase.
+// meetbud schema: users/auth (seeded) plus the meetings & notes domain.
 
 generator client {
   provider = "prisma-client-js"
@@ -39,6 +38,9 @@ model User {
   updatedAt   DateTime        @updatedAt
   preferences UserPreference?
 
+  organizedMeetings Meeting[]     @relation("MeetingOrganizer")
+  participations    Participant[]
+
   @@map("users")
 }
 
@@ -56,4 +58,122 @@ model UserPreference {
   updatedAt           DateTime   @updatedAt
 
   @@map("user_preferences")
+}
+
+enum MeetingPlatform {
+  meet
+  zoom
+  teams
+}
+
+enum MeetingStatus {
+  upcoming
+  ongoing
+  transcribing
+  summarizing
+  done
+}
+
+enum RecordingStatus {
+  scheduled
+  joining
+  in_call
+  recording
+  done
+  failed
+}
+
+model Meeting {
+  id               String          @id @default(cuid())
+  title            String
+  description      String?
+  platform         MeetingPlatform
+  status           MeetingStatus   @default(upcoming)
+  startAt          DateTime
+  endAt            DateTime
+  joinUrl          String?
+  recordingEnabled Boolean         @default(true)
+  organizerId      String
+  organizer        User            @relation("MeetingOrganizer", fields: [organizerId], references: [id])
+  calendarEventId  String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  participants Participant[]
+  recording    Recording?
+  transcript   TranscriptSegment[]
+  summary      Summary?
+
+  @@index([organizerId])
+  @@map("meetings")
+}
+
+model Participant {
+  id                  String   @id @default(cuid())
+  meetingId           String
+  meeting             Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  userId              String?
+  user                User?    @relation(fields: [userId], references: [id])
+  name                String
+  email               String?
+  title               String?
+  isOrganizer         Boolean  @default(false)
+  isExternal          Boolean  @default(false)
+  recallParticipantId String?
+  createdAt           DateTime @default(now())
+
+  segments TranscriptSegment[]
+
+  @@unique([meetingId, userId])
+  @@index([meetingId])
+  @@map("participants")
+}
+
+model Recording {
+  id                String          @id @default(cuid())
+  meetingId         String          @unique
+  meeting           Meeting         @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  recallBotId       String?
+  recallRecordingId String?
+  status            RecordingStatus @default(scheduled)
+  audioUrl          String?
+  videoUrl          String?
+  mediaExpiresAt    DateTime?
+  durationSec       Int?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@map("recordings")
+}
+
+model TranscriptSegment {
+  id            String       @id @default(cuid())
+  meetingId     String
+  meeting       Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participantId String?
+  participant   Participant? @relation(fields: [participantId], references: [id])
+  startSec      Float
+  endSec        Float?
+  text          String
+  order         Int
+  createdAt     DateTime     @default(now())
+
+  @@index([meetingId, startSec])
+  @@map("transcript_segments")
+}
+
+model Summary {
+  id          String    @id @default(cuid())
+  meetingId   String    @unique
+  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  tldr        String
+  content     Json
+  model       String?
+  generatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("summaries")
 }

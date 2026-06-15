@@ -9,6 +9,7 @@ import { MailModule } from './common/mail/mail.module'
 import { AuthModule } from './auth/auth.module'
 import { ProfileModule } from './profile/profile.module'
 import { UsersModule } from './users/users.module'
+import { MeetingsModule } from './meetings/meetings.module'
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module'
     AuthModule,
     ProfileModule,
     UsersModule,
+    MeetingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

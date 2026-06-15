@@ -4,12 +4,14 @@ import { cn } from '@/lib/cn'
 import { DAY_ABBR, addDays, pad2, sameDay, startOfWeek } from '@/lib/format'
 import { PLATFORMS } from '@/lib/constants'
 import type { Meeting } from '@/lib/types'
-import { MEETINGS } from '@/data/meetings'
+import { storeToRefs } from 'pinia'
+import { useMeetingsStore } from '@/stores/meetings'
 import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ anchor: Date }>()
 const emit = defineEmits<{ event: [ev: Meeting]; day: [d: Date] }>()
 
+const { meetings: MEETINGS } = storeToRefs(useMeetingsStore())
 const ui = useUiStore()
 const now = new Date()
 const maxChips = computed(() => (ui.dense ? 2 : 3))
@@ -27,7 +29,7 @@ function shortTime(d: Date) {
   return m === 0 ? `${h}` : `${h}:${pad2(m)}`
 }
 function eventsFor(d: Date) {
-  return MEETINGS.filter((m) => sameDay(m.start, d)).sort(
+  return MEETINGS.value.filter((m) => sameDay(m.start, d)).sort(
     (a, b) => +a.start - +b.start,
   )
 }

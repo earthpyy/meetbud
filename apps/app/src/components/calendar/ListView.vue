@@ -3,13 +3,15 @@ import { computed } from 'vue'
 import { fmtDateMed, fmtDuration, fmtTime, relativeDay } from '@/lib/format'
 import { PLATFORMS } from '@/lib/constants'
 import type { Meeting } from '@/lib/types'
-import { MEETINGS } from '@/data/meetings'
+import { storeToRefs } from 'pinia'
+import { useMeetingsStore } from '@/stores/meetings'
 import { useRecordingsStore } from '@/stores/recordings'
 import Icon from '@/components/Icon.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import AttendeeStack from '@/components/AttendeeStack.vue'
 
 const emit = defineEmits<{ event: [ev: Meeting] }>()
+const { meetings: MEETINGS } = storeToRefs(useMeetingsStore())
 const recordings = useRecordingsStore()
 const now = new Date()
 
@@ -20,7 +22,7 @@ interface Group {
 }
 
 const groups = computed<Group[]>(() => {
-  const upcoming = MEETINGS.filter(
+  const upcoming = MEETINGS.value.filter(
     (m) => m.end >= now || m.status === 'ongoing',
   ).sort((a, b) => +a.start - +b.start)
   const out: Group[] = []

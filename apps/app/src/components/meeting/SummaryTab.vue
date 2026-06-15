@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { cn } from '@/lib/cn'
 import { fmtClock } from '@/lib/format'
-import { PEOPLE } from '@/data/people'
-import { SUMMARY } from '@/data/summary'
+import type { Summary, Person } from '@/lib/types'
 import Icon from '@/components/Icon.vue'
 import Avatar from '@/components/Avatar.vue'
 import SectionTitle from './SectionTitle.vue'
 
+const props = defineProps<{ summary: Summary | null; people: Record<string, Person> }>()
 const emit = defineEmits<{ seek: [t: number] }>()
 
 const PROMPT_PRESETS: Record<string, string> = {
@@ -21,7 +21,14 @@ const PROMPT_PRESETS: Record<string, string> = {
     'Focus on decisions made and any risks, blockers or open questions raised. List owners for each follow-up.',
 }
 
-const done = ref<boolean[]>([false, false, false])
+const done = ref<boolean[]>([])
+watch(
+  () => props.summary,
+  (s) => {
+    done.value = Array(s?.actionItems.length ?? 0).fill(false)
+  },
+  { immediate: true },
+)
 const prompt = ref(PROMPT_PRESETS['Default'])
 const preset = ref('Default')
 const promptOpen = ref(false)
@@ -46,7 +53,7 @@ function onPromptInput(v: string) {
 </script>
 
 <template>
-  <div class="relative">
+  <div v-if="props.summary" class="relative">
     <div
       v-if="regenerating"
       class="absolute inset-0 z-20 flex items-start justify-center pt-20"
@@ -104,7 +111,7 @@ function onPromptInput(v: string) {
         <div class="rounded-2xl border border-base-content/10 bg-base-100 p-5">
           <SectionTitle icon="flag">TL;DR</SectionTitle>
           <p class="text-[14.5px] leading-relaxed text-base-content/75">
-            {{ SUMMARY.tldr }}
+            {{ props.summary.tldr }}
           </p>
         </div>
 
@@ -113,7 +120,7 @@ function onPromptInput(v: string) {
           <SectionTitle icon="list-checks">Key points</SectionTitle>
           <ul class="space-y-2.5">
             <li
-              v-for="(k, i) in SUMMARY.keyPoints"
+              v-for="(k, i) in props.summary.keyPoints"
               :key="i"
               class="flex gap-3 text-[14px] leading-relaxed text-base-content/75"
             >
@@ -131,7 +138,7 @@ function onPromptInput(v: string) {
           <SectionTitle icon="check-circle">Action items</SectionTitle>
           <div class="space-y-2.5">
             <div
-              v-for="(a, i) in SUMMARY.actionItems"
+              v-for="(a, i) in props.summary.actionItems"
               :key="i"
               :class="
                 cn(
@@ -166,9 +173,9 @@ function onPromptInput(v: string) {
                   {{ a.text }}
                 </p>
                 <div class="flex items-center gap-2 mt-2">
-                  <Avatar :person="PEOPLE[a.who]" :size="20" />
+                  <Avatar v-if="props.people[a.who]" :person="props.people[a.who]" :size="20" />
                   <span class="text-[12px] font-medium text-base-content/60">{{
-                    PEOPLE[a.who].name
+                    props.people[a.who]?.name ?? a.who
                   }}</span>
                   <span class="badge badge-sm badge-ghost gap-1"
                     ><Icon name="clock" :size="11" />{{ a.due }}</span
@@ -184,7 +191,7 @@ function onPromptInput(v: string) {
           <SectionTitle icon="flag">Decisions</SectionTitle>
           <ul class="space-y-2.5">
             <li
-              v-for="(d, i) in SUMMARY.decisions"
+              v-for="(d, i) in props.summary.decisions"
               :key="i"
               class="flex gap-3 text-[14px] leading-relaxed text-base-content/75 rounded-xl bg-base-200/50 p-3.5"
             >
@@ -210,7 +217,7 @@ function onPromptInput(v: string) {
             Chapters
           </h4>
           <ul class="space-y-1">
-            <li v-for="(tp, i) in SUMMARY.topics" :key="i">
+            <li v-for="(tp, i) in props.summary.topics" :key="i">
               <button
                 class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-base-content/5 text-left group"
                 @click="emit('seek', tp.t)"

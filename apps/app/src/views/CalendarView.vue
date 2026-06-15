@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { cn } from '@/lib/cn'
 import {
   MONTHS,
@@ -11,6 +11,8 @@ import {
 import type { Meeting } from '@/lib/types'
 import { useUiStore } from '@/stores/ui'
 import type { CalView } from '@/stores/ui'
+import { useMeetingsStore } from '@/stores/meetings'
+import { useRecordingsStore } from '@/stores/recordings'
 import Icon from '@/components/Icon.vue'
 import TimeGrid from '@/components/calendar/TimeGrid.vue'
 import MonthView from '@/components/calendar/MonthView.vue'
@@ -18,8 +20,15 @@ import ListView from '@/components/calendar/ListView.vue'
 import MeetingPopup from '@/components/calendar/MeetingPopup.vue'
 
 const ui = useUiStore()
+const meetingsStore = useMeetingsStore()
+const recordings = useRecordingsStore()
 const anchor = ref(new Date())
 const popup = ref<Meeting | null>(null)
+
+onMounted(async () => {
+  await meetingsStore.load()
+  for (const m of meetingsStore.meetings) recordings.prime(m.id, m.recording)
+})
 
 const view = computed(() => ui.calView)
 const views: CalView[] = ['day', 'week', 'month', 'list']

@@ -2,9 +2,10 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cn } from '@/lib/cn'
-import { byId } from '@/data/meetings'
+import { useMeetingsStore } from '@/stores/meetings'
 import { useAuthStore } from '@/stores/auth'
 import type { Role } from '@/stores/auth'
+import { createMeeting } from '@/lib/meetingApi'
 import Icon from '@/components/Icon.vue'
 import Avatar from '@/components/Avatar.vue'
 import ThemeToggle from './ThemeToggle.vue'
@@ -13,11 +14,12 @@ import NewRecordingModal from './NewRecordingModal.vue'
 
 const route = useRoute()
 const router = useRouter()
+const meetingsStore = useMeetingsStore()
 const auth = useAuthStore()
 
 const heading = computed(() => {
   if (route.name === 'meeting') {
-    const m = byId(route.params.id as string)
+    const m = meetingsStore.byId(route.params.id as string)
     return { title: m ? m.title : 'Meeting', sub: 'Notes', back: true }
   }
   return {
@@ -34,9 +36,16 @@ function flash(msg: string) {
   toast.value = msg
   setTimeout(() => (toast.value = null), 3000)
 }
-function onSubmit(_link: string, title: string) {
-  recOpen.value = false
-  flash(`meetbud is joining “${title}” to record…`)
+async function onSubmit(link: string, title: string) {
+  try {
+    const created = await createMeeting(link, title)
+    recOpen.value = false
+    flash(`meetbud is joining “${title}” to record…`)
+    await meetingsStore.load(true)
+    router.push({ name: 'meeting', params: { id: created.id } })
+  } catch (e) {
+    flash(e instanceof Error ? e.message : 'Failed to start recording')
+  }
 }
 function go(name: string) {
   router.push({ name })

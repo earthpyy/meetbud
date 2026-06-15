@@ -1,21 +1,23 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { byId } from '@/data/meetings'
+import { setRecording as apiSetRecording } from '@/lib/meetingApi'
 
-export const useRecordingsStore = defineStore(
-  'recordings',
-  () => {
-    const recordingMap = ref<Record<string, boolean>>({})
+export const useRecordingsStore = defineStore('recordings', () => {
+  // meetingId → recording-enabled override (seeded from the meeting list).
+  const recordingMap = ref<Record<string, boolean>>({})
 
-    function getRecording(id: string): boolean {
-      if (id in recordingMap.value) return recordingMap.value[id]
-      return byId(id)?.recording ?? false
-    }
-    function setRecording(id: string, on: boolean) {
+  function prime(id: string, on: boolean) {
+    if (!(id in recordingMap.value)) {
       recordingMap.value = { ...recordingMap.value, [id]: on }
     }
+  }
+  function getRecording(id: string): boolean {
+    return recordingMap.value[id] ?? false
+  }
+  async function setRecording(id: string, on: boolean) {
+    recordingMap.value = { ...recordingMap.value, [id]: on }
+    await apiSetRecording(id, on)
+  }
 
-    return { recordingMap, getRecording, setRecording }
-  },
-  { persist: true },
-)
+  return { recordingMap, prime, getRecording, setRecording }
+})

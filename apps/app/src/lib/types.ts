@@ -71,3 +71,36 @@ export interface AdminUser {
   last: string
   meetings: number
 }
+
+export interface ApiPerson {
+  id: string
+  userId?: string | null
+  name: string
+  email: string | null
+  title: string | null
+  initials: string
+  color: string
+  isExternal?: boolean
+  isOrganizer?: boolean
+}
+
+export interface ApiMeeting {
+  id: string
+  title: string
+  description: string | null
+  platform: PlatformKey
+  status: MeetingStatus
+  start: string
+  end: string
+  durationMin: number
+  joinUrl: string | null
+  recording: boolean
+  organizer: ApiPerson
+  attendees: ApiPerson[]
+}
+
+export interface ApiMeetingDetail extends ApiMeeting {
+  hasTranscript: boolean
+  hasSummary: boolean
+  media: { status: string; durationSec: number | null; audioUrl: string | null; videoUrl: string | null } | null
+}

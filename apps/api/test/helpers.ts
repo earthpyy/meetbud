@@ -85,3 +85,40 @@ export async function accessTokenFor(
   const { accessToken } = await ctx.tokens.issueTokens(user)
   return accessToken
 }
+
+export async function createMeeting(
+  ctx: TestContext,
+  organizer: { id: string; name: string; email: string },
+  overrides: Partial<{
+    title: string
+    status: 'upcoming' | 'ongoing' | 'transcribing' | 'summarizing' | 'done'
+    attendeeUserIds: string[]
+  }> = {},
+) {
+  const now = new Date()
+  return ctx.prisma.meeting.create({
+    data: {
+      title: overrides.title ?? 'E2E Meeting',
+      platform: 'meet',
+      status: overrides.status ?? 'done',
+      startAt: now,
+      endAt: new Date(now.getTime() + 30 * 60000),
+      organizerId: organizer.id,
+      participants: {
+        create: [
+          {
+            userId: organizer.id,
+            name: organizer.name,
+            email: organizer.email,
+            isOrganizer: true,
+          },
+          ...(overrides.attendeeUserIds ?? []).map((uid) => ({
+            userId: uid,
+            name: 'Attendee',
+          })),
+        ],
+      },
+    },
+    include: { participants: true },
+  })
+}
