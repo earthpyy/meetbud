@@ -1,18 +1,37 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import Icon from '@/components/Icon.vue'
 import DaisySelect from '@/components/DaisySelect.vue'
 import SettingRow from './SettingRow.vue'
 import MaskedKey from './MaskedKey.vue'
+import { useSettingsStore } from '@/stores/settings'
 
 const inputCls =
   'w-full h-10 px-3.5 rounded-xl bg-base-200/60 border border-base-content/10 text-[14px] outline-none focus:border-[color:var(--accent)] focus:bg-base-100 transition-colors'
 
-const k = ref('rcl-•••••••••••••••••••••••')
-const botName = ref('meetbud Notetaker')
-const region = ref('us-east-1')
-const retention = ref('90')
-const autoLeave = ref(true)
+const store = useSettingsStore()
+
+const k = computed({
+  get: () => store.draft.recallApiKey ?? '',
+  set: (v: string) => (store.draft.recallApiKey = v),
+})
+const botName = computed({
+  get: () => store.draft.recallBotName ?? '',
+  set: (v: string) => (store.draft.recallBotName = v),
+})
+const region = computed({
+  get: () => store.draft.recallRegion ?? 'us-east-1',
+  set: (v: string) => (store.draft.recallRegion = v),
+})
+const retention = computed({
+  get: () => String(store.draft.recordingRetentionDays ?? 90),
+  set: (v: string) => (store.draft.recordingRetentionDays = Number(v)),
+})
+const autoLeave = computed({
+  get: () => store.draft.recallAutoLeave ?? true,
+  set: (v: boolean) => (store.draft.recallAutoLeave = v),
+})
+const recallKeySet = computed(() => store.settings?.recallApiKeySet ?? false)
 
 const regions = [
   { value: 'us-east-1', label: 'US East (Virginia)' },
@@ -50,7 +69,7 @@ const retentions = [
     </div>
     <div class="mt-3">
       <SettingRow label="Recall.ai API key">
-        <MaskedKey v-model="k" placeholder="rcl-..." />
+        <MaskedKey v-model="k" placeholder="rcl-..." :configured="recallKeySet" />
       </SettingRow>
       <SettingRow
         label="Bot display name"

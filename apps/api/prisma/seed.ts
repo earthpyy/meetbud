@@ -181,21 +181,49 @@ async function main() {
         isExternal: true,
       })),
     ]
+    const startAt = at(m.s[0], m.s[1], m.s[2])
+    const endAt = at(m.e[0], m.e[1], m.e[2])
     const created = await prisma.meeting.create({
       data: {
         title: m.title,
         description: m.desc,
         platform: m.platform as MeetingPlatform,
         status: m.status as MeetingStatus,
-        startAt: at(m.s[0], m.s[1], m.s[2]),
-        endAt: at(m.e[0], m.e[1], m.e[2]),
+        startAt,
+        endAt,
         organizerId: org.id,
         recordingEnabled: m.status !== 'upcoming',
         participants: { create: participantsData },
       },
       include: { participants: true },
     })
-    if (m.featured) northwindId = created.id
+    if (m.featured) {
+      northwindId = created.id
+    } else if (m.status === 'done') {
+      const durationSec = Math.round((endAt.getTime() - startAt.getTime()) / 1000)
+      await prisma.recording.create({
+        data: {
+          meetingId: created.id,
+          status: RecordingStatus.done,
+          durationSec,
+        },
+      })
+      await prisma.summary.create({
+        data: {
+          meetingId: created.id,
+          tldr: `Auto-generated summary for ${m.title}.`,
+          generatedAt: new Date(),
+          inputTokens: 900 + durationSec,
+          outputTokens: 300 + Math.round(durationSec / 3),
+          content: {
+            keyPoints: [],
+            actionItems: [],
+            decisions: [],
+            topics: [],
+          },
+        },
+      })
+    }
   }
 
   await seedNorthwindNotes(northwindId)
@@ -340,6 +368,8 @@ async function seedNorthwindNotes(meetingId: string) {
       meetingId,
       tldr: "Northwind's core pain is data trust and observability, not volume. They've had two incidents this quarter where bad data reached customer-facing reports. We aligned on a 4–6 week pilot covering their three highest-risk sources with schema-change detection, freshness checks, and Slack/PagerDuty alerting. Success = catching one real issue pre-report and cutting detection time from hours to minutes.",
       generatedAt: new Date(),
+      inputTokens: 1840,
+      outputTokens: 620,
       content: {
         keyPoints: [
           'Current pipeline ingests ~12 sources into a warehouse; transformation is brittle and breaks silently on upstream schema changes.',

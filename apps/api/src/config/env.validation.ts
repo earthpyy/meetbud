@@ -24,6 +24,9 @@ class EnvironmentVariables {
   @IsInt()
   OTP_TTL!: number
 
+  @IsString()
+  SETTINGS_ENCRYPTION_KEY!: string
+
   @IsOptional()
   @IsString()
   SMTP_HOST?: string

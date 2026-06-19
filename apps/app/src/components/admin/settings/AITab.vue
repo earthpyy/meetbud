@@ -1,25 +1,44 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
 import Icon from '@/components/Icon.vue'
 import DaisySelect from '@/components/DaisySelect.vue'
 import SettingRow from './SettingRow.vue'
 import MaskedKey from './MaskedKey.vue'
+import { useSettingsStore } from '@/stores/settings'
 
 const inputCls =
   'w-full h-10 px-3.5 rounded-xl bg-base-200/60 border border-base-content/10 text-[14px] outline-none focus:border-[color:var(--accent)] focus:bg-base-100 transition-colors'
 
-const k = ref('sk-ant-•••••••••••••••••••••••••••••')
-const base = ref('https://api.anthropic.com')
-const model = ref('claude-sonnet-4.5')
-const temp = ref(0.3)
-const prompt = ref(
-  'You are a meeting-notes assistant. Summarize the transcript into a concise TL;DR, key points, decisions, and action items with owners. Be specific and never invent details.',
-)
+const store = useSettingsStore()
+
+// New secret key typed by the admin (empty = keep existing).
+const k = computed({
+  get: () => store.draft.aiApiKey ?? '',
+  set: (v: string) => (store.draft.aiApiKey = v),
+})
+const base = computed({
+  get: () => store.draft.aiBaseUrl ?? '',
+  set: (v: string) => (store.draft.aiBaseUrl = v),
+})
+const model = computed({
+  get: () => store.draft.aiModel ?? '',
+  set: (v: string) => (store.draft.aiModel = v),
+})
+const temp = computed({
+  get: () => store.draft.aiTemperature ?? 0.3,
+  set: (v: number) => (store.draft.aiTemperature = v),
+})
+const prompt = computed({
+  get: () => store.draft.aiSystemPrompt ?? '',
+  set: (v: string) => (store.draft.aiSystemPrompt = v),
+})
+const aiKeySet = computed(() => store.settings?.aiApiKeySet ?? false)
+
 const models = [
-  'claude-sonnet-4.5',
-  'claude-opus-4.1',
-  'claude-haiku-4.5',
-  'gpt-4o (compat)',
+  'claude-opus-4-8',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5-20251001',
+  'claude-fable-5',
 ]
 </script>
 
@@ -55,18 +74,7 @@ const models = [
         label="API key"
         hint="Stored encrypted. Used server-side only."
       >
-        <div class="flex gap-2">
-          <div class="flex-1">
-            <MaskedKey v-model="k" placeholder="sk-ant-..." />
-          </div>
-          <button class="btn btn-sm h-10">Test</button>
-        </div>
-        <div
-          class="mt-1.5 flex items-center gap-1.5 text-[12px] text-green-600"
-        >
-          <span class="w-1.5 h-1.5 rounded-full bg-green-500" /> Connection
-          verified · 4 models available
-        </div>
+        <MaskedKey v-model="k" placeholder="sk-ant-..." :configured="aiKeySet" />
       </SettingRow>
       <SettingRow
         label="Model"

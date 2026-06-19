@@ -73,4 +73,18 @@ describe('Profile (e2e)', () => {
       .send({ role: 'admin' })
       .expect(400)
   })
+
+  it('PATCH /me/preferences accepts null customPrompt to clear it', async () => {
+    const user = await createUser(ctx)
+    ids.push(user.id)
+    const token = await accessTokenFor(ctx, user)
+
+    const res = await request(ctx.app.getHttpServer())
+      .patch('/api/me/preferences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ customPromptEnabled: false, customPrompt: null })
+      .expect(200)
+
+    expect(res.body.preferences.customPrompt).toBeNull()
+  })
 })

@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { cn } from '@/lib/cn'
 import { fmtInt, fmtCompact, fmtDuration } from '@/lib/format'
 import { PLATFORMS } from '@/lib/constants'
-import type { PlatformKey } from '@/lib/types'
-import { buildPeriods, buildMemberStats } from '@/lib/analytics'
-import { ADMIN_USERS } from '@/data/adminUsers'
+import { fetchAnalytics, type ApiAnalytics } from '@/lib/analyticsApi'
 import { useUiStore } from '@/stores/ui'
 import Icon from '@/components/Icon.vue'
 import Avatar from '@/components/Avatar.vue'
@@ -21,59 +19,65 @@ const ui = useUiStore()
 
 const metric = ref<Metric>('meetings')
 const sort = ref<SortKey>('meetings')
+const data = ref<ApiAnalytics | null>(null)
 
 const gran = computed(() => ui.analyticsGran)
 const perLabel = computed(() => (gran.value === 'weekly' ? 'week' : 'month'))
 
-const series = computed(() => buildPeriods(gran.value))
+async function load() {
+  data.value = await fetchAnalytics(gran.value)
+}
+onMounted(load)
+watch(gran, load)
 
-const sum = (a: number[]) => a.reduce((s, x) => s + x, 0)
+const periods = computed(() => data.value?.series.periods ?? [])
+const meetingsSeries = computed(() => data.value?.series.meetings ?? [])
+const minutesSeries = computed(() => data.value?.series.minutes ?? [])
+const tokensSeries = computed(() => data.value?.series.tokens ?? [])
+
 const delta = (a: number[]) => {
   const p = a[a.length - 2]
   return p ? ((a[a.length - 1] - p) / p) * 100 : 0
 }
 
-const totMeet = computed(() => sum(series.value.meetings))
-const totMin = computed(() => sum(series.value.minutes))
-const totTok = computed(() => sum(series.value.tokens))
+const totMeet = computed(() => data.value?.kpis.meetings ?? 0)
+const totMin = computed(() => minutesSeries.value.reduce((s, x) => s + x, 0))
+const totTok = computed(() => data.value?.kpis.aiTokens ?? 0)
 
-// active members (exclude pending invites) → leaderboard
-const members = buildMemberStats(
-  ADMIN_USERS.filter((u) => u.status === 'active'),
-)
+const members = computed(() => data.value?.members ?? [])
 const usersSorted = computed(() => {
   const key =
     sort.value === 'hours'
-      ? 'mins'
+      ? 'hours'
       : sort.value === 'tokens'
         ? 'tokens'
-        : 'mtgs'
-  return [...members].sort((a, b) => b[key] - a[key])
+        : 'meetings'
+  return [...members.value].sort((a, b) => b[key] - a[key])
 })
-const maxMtg = Math.max(...members.map((u) => u.mtgs))
+const maxMtg = computed(() =>
+  Math.max(1, ...members.value.map((u) => u.meetings)),
+)
 
-// platform split (stable mock proportions)
 const platSplit = computed(() => {
-  const t = totMeet.value
-  const split: { key: PlatformKey; value: number }[] = [
-    { key: 'meet', value: Math.round(t * 0.52) },
-    { key: 'zoom', value: Math.round(t * 0.33) },
-    { key: 'teams', value: t - Math.round(t * 0.52) - Math.round(t * 0.33) },
-  ]
-  return split.map((p) => ({ ...p, ...PLATFORMS[p.key] }))
+  const split = data.value?.platformSplit ?? []
+  return split.map((p) => ({
+    key: p.platform,
+    value: p.count,
+    ...PLATFORMS[p.platform],
+  }))
 })
 
 const chartSeries = computed(() =>
   metric.value === 'minutes'
-    ? series.value.minutes
+    ? minutesSeries.value
     : metric.value === 'tokens'
-      ? series.value.tokens
-      : series.value.meetings,
+      ? tokensSeries.value
+      : meetingsSeries.value,
 )
 const chartData = computed(() =>
-  series.value.periods.map((p, i) => ({
+  periods.value.map((p, i) => ({
     label: p.label,
-    value: chartSeries.value[i],
+    value: chartSeries.value[i] ?? 0,
   })),
 )
 const chartFmt = computed(() =>
@@ -91,9 +95,15 @@ const chartSubtitle = computed(() =>
       : 'Meetings recorded',
 )
 
-const avgLen = computed(() => Math.round(totMin.value / totMeet.value))
-const summariesPct = 96.4
-const transcriptAcc = 98.1
+const avgLen = computed(() =>
+  totMeet.value ? Math.round(totMin.value / totMeet.value) : 0,
+)
+const summariesGenerated = computed(() => {
+  // Members carry per-organizer meeting counts; tokens>0 implies a summary.
+  const withSummary = members.value.filter((m) => m.tokens > 0).length
+  const active = members.value.length
+  return active ? Math.round((withSummary / active) * 100) : 0
+})
 
 const rangeLabel = computed(
   () => `Last 12 ${gran.value === 'weekly' ? 'weeks' : 'months'}`,
@@ -122,11 +132,10 @@ const quickStats = computed(() => [
     label: 'Avg meeting length',
     val: fmtDuration(avgLen.value),
   },
-  { icon: 'sparkles', label: 'Summaries generated', val: summariesPct + '%' },
   {
-    icon: 'activity',
-    label: 'Transcription accuracy',
-    val: transcriptAcc + '%',
+    icon: 'sparkles',
+    label: 'Summaries generated',
+    val: summariesGenerated.value + '%',
   },
 ])
 </script>
@@ -140,9 +149,9 @@ const quickStats = computed(() => [
           <Icon name="calendar" :size="15" class="text-base-content/40" />
           <span class="font-medium">{{ rangeLabel }}</span>
           <span class="text-base-content/25">·</span>
-          <span
-            >{{ series.periods[0].label }} –
-            {{ series.periods[series.periods.length - 1].label }}</span
+          <span v-if="periods.length"
+            >{{ periods[0].label }} –
+            {{ periods[periods.length - 1].label }}</span
           >
         </div>
         <div class="flex-1" />
@@ -180,32 +189,32 @@ const quickStats = computed(() => [
           label="Meetings recorded"
           :value="fmtInt(totMeet)"
           :sub="`vs last ${perLabel}`"
-          :series="series.meetings"
-          :delta-pct="delta(series.meetings)"
+          :series="meetingsSeries"
+          :delta-pct="delta(meetingsSeries)"
         />
         <KpiCard
           icon="timer"
           label="Hours transcribed"
           :value="fmtCompact(totMin / 60)"
           :sub="`vs last ${perLabel}`"
-          :series="series.minutes"
-          :delta-pct="delta(series.minutes)"
+          :series="minutesSeries"
+          :delta-pct="delta(minutesSeries)"
         />
         <KpiCard
           icon="cpu"
           label="AI tokens used"
           :value="fmtCompact(totTok)"
           :sub="`vs last ${perLabel}`"
-          :series="series.tokens"
-          :delta-pct="delta(series.tokens)"
+          :series="tokensSeries"
+          :delta-pct="delta(tokensSeries)"
         />
         <KpiCard
           icon="users"
           label="Active users"
-          :value="fmtInt(members.length)"
-          sub="of 9 seats"
-          :series="[6, 6, 7, 7, 7, 8, 8, 8]"
-          :delta-pct="14.3"
+          :value="fmtInt(data?.kpis.activeUsers ?? 0)"
+          :sub="`of ${data?.kpis.totalSeats ?? 0} seats`"
+          :series="meetingsSeries"
+          :delta-pct="0"
         />
       </div>
 
@@ -268,7 +277,7 @@ const quickStats = computed(() => [
                   p.short
                 }}</span>
                 <span class="text-[13px] font-semibold tabular-nums"
-                  >{{ Math.round((p.value / totMeet) * 100) }}%</span
+                  >{{ totMeet ? Math.round((p.value / totMeet) * 100) : 0 }}%</span
                 >
               </div>
             </div>
@@ -400,12 +409,7 @@ const quickStats = computed(() => [
                       class="font-semibold text-[14px] truncate flex items-center gap-1.5"
                     >
                       {{ u.name }}
-                      <Icon
-                        v-if="u.role === 'admin'"
-                        name="shield"
-                        :size="12"
-                        :style="{ color: 'var(--accent)' }"
-                      />
+                      <Icon v-if="u.role === 'admin'" name="shield" :size="12" :style="{ color: 'var(--accent)' }" />
                     </div>
                     <div class="text-[12px] text-base-content/45 truncate">
                       {{ u.email }}
@@ -416,7 +420,7 @@ const quickStats = computed(() => [
               <td class="hidden sm:table-cell pr-4">
                 <div class="flex items-center gap-2.5">
                   <span class="text-[14px] font-bold tabular-nums w-8">{{
-                    u.mtgs
+                    u.meetings
                   }}</span>
                   <div
                     class="flex-1 h-1.5 rounded-full bg-base-content/[0.08] overflow-hidden max-w-[120px]"
@@ -424,7 +428,7 @@ const quickStats = computed(() => [
                     <div
                       class="h-full rounded-full"
                       :style="{
-                        width: `${(u.mtgs / maxMtg) * 100}%`,
+                        width: `${(u.meetings / maxMtg) * 100}%`,
                         background: 'var(--accent)',
                       }"
                     />
@@ -444,12 +448,12 @@ const quickStats = computed(() => [
               <td
                 class="hidden xl:table-cell text-[13px] tabular-nums text-base-content/55"
               >
-                {{ u.avg }}m
+                {{ u.avgMin }}m
               </td>
               <td class="hidden md:table-cell">
                 <div class="w-[88px]">
                   <Sparkline
-                    :points="u.spark"
+                    :points="u.sparkline"
                     :w="88"
                     :h="26"
                     :fill="false"
@@ -460,15 +464,11 @@ const quickStats = computed(() => [
               <td
                 class="hidden sm:table-cell pr-5 text-[12.5px] text-base-content/50"
               >
-                {{ u.last }}
+                {{ u.lastActive ? new Date(u.lastActive).toLocaleDateString() : '—' }}
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div class="text-[11px] text-base-content/35 mt-4 text-center">
-        Figures are illustrative sample data · meetbud analytics
       </div>
     </div>
   </div>

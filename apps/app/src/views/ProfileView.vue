@@ -1,7 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
+import {
+  fetchMe,
+  updateProfile,
+  updatePreferences,
+  type AutoRecord,
+  type ApiPreferences,
+} from '@/lib/profileApi'
 import Icon from '@/components/Icon.vue'
 import Avatar from '@/components/Avatar.vue'
 import ProfileCard from '@/components/profile/ProfileCard.vue'
@@ -11,7 +18,8 @@ import ToggleRow from '@/components/profile/ToggleRow.vue'
 const auth = useAuthStore()
 
 const prefs = ref({ early: true, notify: true, slack: false, weekly: true })
-const autoRecord = ref('organized')
+const autoRecord = ref<AutoRecord>('organized')
+const timezone = ref<string>('')
 
 const PROMPT_PRESETS: Record<string, string> = {
   Default:
@@ -28,7 +36,14 @@ const preset = ref('Default')
 const prompt = ref(PROMPT_PRESETS['Default'])
 const savedPrompt = ref(false)
 
-const autoRecordOptions: [string, string][] = [
+// Account edit mode
+const editing = ref(false)
+const editName = ref('')
+const editTitle = ref('')
+const editTz = ref('')
+const savingProfile = ref(false)
+
+const autoRecordOptions: [AutoRecord, string][] = [
   ['all', 'All meetings'],
   ['organized', 'Only mine'],
   ['off', 'Off'],
@@ -38,20 +53,89 @@ const connectable: [string, string, string][] = [
   ['Apple iCal', 'calendar', '#94a3b8'],
 ]
 
+onMounted(async () => {
+  try {
+    const me = await fetchMe()
+    const p = me.preferences
+    prefs.value = {
+      early: p.joinEarly,
+      notify: p.notifyOnSummary,
+      slack: p.slackSummaries,
+      weekly: p.weeklyDigest,
+    }
+    autoRecord.value = p.autoRecord
+    timezone.value = me.timezone ?? ''
+    customOn.value = p.customPromptEnabled
+    if (p.customPrompt) {
+      prompt.value = p.customPrompt
+      preset.value = 'Custom'
+    }
+  } catch (err) {
+    console.error(err)
+  }
+})
+
 function pickPreset(p: string) {
   preset.value = p
   prompt.value = PROMPT_PRESETS[p]
 }
-function savePrompt() {
-  savedPrompt.value = true
-  setTimeout(() => (savedPrompt.value = false), 2200)
+async function savePrompt() {
+  try {
+    await updatePreferences({
+      customPromptEnabled: customOn.value,
+      customPrompt: prompt.value,
+    })
+    savedPrompt.value = true
+    setTimeout(() => (savedPrompt.value = false), 2200)
+  } catch (err) {
+    console.error(err)
+  }
 }
-function set(k: keyof typeof prefs.value, v: boolean) {
+async function setCustomOn(v: boolean) {
+  customOn.value = v
+  await updatePreferences({ customPromptEnabled: v })
+}
+async function setAutoRecord(v: AutoRecord) {
+  autoRecord.value = v
+  await updatePreferences({ autoRecord: v })
+}
+async function set(k: keyof typeof prefs.value, v: boolean) {
   prefs.value = { ...prefs.value, [k]: v }
+  const patch: Partial<ApiPreferences> = {}
+  if (k === 'early') patch.joinEarly = v
+  else if (k === 'notify') patch.notifyOnSummary = v
+  else if (k === 'slack') patch.slackSummaries = v
+  else if (k === 'weekly') patch.weeklyDigest = v
+  await updatePreferences(patch)
 }
 function onPromptInput(v: string) {
   prompt.value = v
   preset.value = 'Custom'
+}
+
+function startEdit() {
+  editName.value = auth.user?.name ?? ''
+  editTitle.value = auth.user?.title ?? ''
+  editTz.value = timezone.value
+  editing.value = true
+}
+function cancelEdit() {
+  editing.value = false
+}
+async function saveProfile() {
+  savingProfile.value = true
+  try {
+    const updated = await updateProfile({
+      name: editName.value,
+      title: editTitle.value,
+      timezone: editTz.value,
+    })
+    timezone.value = updated.timezone ?? ''
+    auth.applyProfileUpdate({ name: updated.name, title: updated.title })
+    editing.value = false
+  } finally {
+    savingProfile.value = false
+  }
 }
 </script>
 
@@ -84,18 +168,77 @@ function onPromptInput(v: string) {
           </div>
           <p class="text-base-content/55 text-[14px]">{{ auth.user.email }}</p>
         </div>
-        <button class="btn btn-sm gap-1.5">
-          <Icon name="edit" :size="15" /> Edit
-        </button>
       </div>
 
       <!-- account -->
       <ProfileCard v-if="auth.user" title="Account">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <template #action>
+          <button
+            v-if="!editing"
+            class="btn btn-sm gap-1.5"
+            @click="startEdit"
+          >
+            <Icon name="edit" :size="15" /> Edit
+          </button>
+          <div v-else class="flex items-center gap-2">
+            <button class="btn btn-ghost btn-sm" @click="cancelEdit">
+              Cancel
+            </button>
+            <button
+              class="btn btn-sm text-white border-0"
+              :style="{ background: 'var(--accent)' }"
+              :disabled="savingProfile"
+              @click="saveProfile"
+            >
+              Save
+            </button>
+          </div>
+        </template>
+        <div v-if="!editing" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ProfileField label="Full name" :value="auth.user.name" />
           <ProfileField label="Email" :value="auth.user.email" />
           <ProfileField label="Role / title" :value="auth.user.title ?? ''" />
-          <ProfileField label="Timezone" value="(GMT−07:00) Pacific Time" />
+          <ProfileField label="Timezone" :value="timezone || '—'" />
+        </div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="text-[12px] font-semibold text-base-content/55"
+              >Full name</label
+            >
+            <input
+              v-model="editName"
+              class="mt-1 w-full h-10 px-3.5 rounded-xl bg-base-200/60 border border-base-content/10 text-[14px] outline-none focus:border-[color:var(--accent)] focus:bg-base-100 transition-colors"
+            />
+          </div>
+          <div>
+            <label class="text-[12px] font-semibold text-base-content/55"
+              >Email</label
+            >
+            <div
+              class="mt-1 h-10 px-3.5 flex items-center rounded-xl bg-base-200/40 border border-base-content/10 text-[14px] text-base-content/50"
+            >
+              {{ auth.user.email }}
+            </div>
+          </div>
+          <div>
+            <label class="text-[12px] font-semibold text-base-content/55"
+              >Role / title</label
+            >
+            <input
+              v-model="editTitle"
+              class="mt-1 w-full h-10 px-3.5 rounded-xl bg-base-200/60 border border-base-content/10 text-[14px] outline-none focus:border-[color:var(--accent)] focus:bg-base-100 transition-colors"
+            />
+          </div>
+          <div>
+            <label class="text-[12px] font-semibold text-base-content/55"
+              >Timezone</label
+            >
+            <input
+              v-model="editTz"
+              placeholder="America/Los_Angeles"
+              class="mt-1 w-full h-10 px-3.5 rounded-xl bg-base-200/60 border border-base-content/10 text-[14px] outline-none focus:border-[color:var(--accent)] focus:bg-base-100 transition-colors"
+            />
+          </div>
         </div>
       </ProfileCard>
 
@@ -192,7 +335,7 @@ function onPromptInput(v: string) {
               :style="
                 autoRecord === v ? { background: 'var(--accent)' } : undefined
               "
-              @click="autoRecord = v"
+              @click="setAutoRecord(v)"
             >
               {{ label }}
             </button>
@@ -222,7 +365,7 @@ function onPromptInput(v: string) {
           title="Use my own summary prompt"
           desc="Override the workspace default for meetings you organize."
           :on="customOn"
-          @change="customOn = $event"
+          @change="setCustomOn($event)"
         />
         <div v-if="customOn" class="mt-3 pt-3 border-t border-base-content/8">
           <label class="text-[12px] font-semibold text-base-content/55"

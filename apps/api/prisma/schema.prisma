@@ -168,12 +168,31 @@ model Summary {
   id          String    @id @default(cuid())
   meetingId   String    @unique
   meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  tldr        String
-  content     Json
-  model       String?
+  tldr         String
+  content      Json
+  inputTokens  Int?
+  outputTokens Int?
+  model        String?
   generatedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@map("summaries")
+}
+
+model WorkspaceSettings {
+  id                     String   @id @default("default")
+  aiApiKey               String?
+  aiBaseUrl              String   @default("https://api.anthropic.com")
+  aiModel                String   @default("claude-opus-4-8")
+  aiTemperature          Float    @default(0.3)
+  aiSystemPrompt         String   @default("You are a meeting-notes assistant. Summarize the transcript into a concise TL;DR, key points, decisions, and action items with owners. Be specific and never invent details.")
+  recallApiKey           String?
+  recallBotName          String   @default("meetbud Notetaker")
+  recallRegion           String   @default("us-east-1")
+  recordingRetentionDays Int      @default(90)
+  recallAutoLeave        Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+
+  @@map("workspace_settings")
 }

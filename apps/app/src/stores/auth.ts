@@ -57,6 +57,11 @@ export const useAuthStore = defineStore(
       if (!signedIn.value) return
       user.value = await apiGet<ApiUser>('/me')
     }
+    function applyProfileUpdate(p: { name: string; title: string | null }) {
+      if (user.value) {
+        user.value = { ...user.value, name: p.name, title: p.title }
+      }
+    }
     async function signOut() {
       try {
         await apiPost('/auth/logout')
@@ -91,6 +96,7 @@ export const useAuthStore = defineStore(
       requestCode,
       verify,
       refreshProfile,
+      applyProfileUpdate,
       signOut,
       setRole,
     }

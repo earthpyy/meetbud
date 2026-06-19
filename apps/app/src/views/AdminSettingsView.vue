@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { cn } from '@/lib/cn'
 import Icon from '@/components/Icon.vue'
 import GeneralTab from '@/components/admin/settings/GeneralTab.vue'
 import AITab from '@/components/admin/settings/AITab.vue'
 import RecordingTab from '@/components/admin/settings/RecordingTab.vue'
 import IntegrationsTab from '@/components/admin/settings/IntegrationsTab.vue'
+import { useSettingsStore } from '@/stores/settings'
 
 const TABS = [
   { v: 'general', label: 'General', icon: 'settings' },
@@ -14,10 +15,16 @@ const TABS = [
   { v: 'integrations', label: 'Integrations', icon: 'link' },
 ]
 
+const store = useSettingsStore()
 const tab = ref('ai')
 const saved = ref(false)
 
-function save() {
+onMounted(() => {
+  store.load()
+})
+
+async function save() {
+  await store.save()
   saved.value = true
   setTimeout(() => (saved.value = false), 2200)
 }

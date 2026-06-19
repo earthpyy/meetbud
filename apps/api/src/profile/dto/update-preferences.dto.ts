@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  ValidateIf,
 } from 'class-validator'
 
 export class UpdatePreferencesDto {
@@ -25,9 +26,10 @@ export class UpdatePreferencesDto {
   customPromptEnabled?: boolean
 
   @IsOptional()
+  @ValidateIf((o) => o.customPrompt !== null)
   @IsString()
   @MaxLength(2000)
-  customPrompt?: string
+  customPrompt?: string | null
 
   @IsOptional()
   @IsBoolean()
